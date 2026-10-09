@@ -1,0 +1,271 @@
+{
+  "updatedAt": "2026-10-09T15:53:22.097Z",
+  "createdAt": "2026-10-09T15:09:55.909Z",
+  "id": "ck1SynocTriaje01",
+  "name": "Checkpoint 1 · SYNOC Agente de Triaje NOC (Edgar Arcia)",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Checkpoint 1 · Agente base SYNOC\n**Trigger → AI Agent (Tools Agent + System Prompt + 1 Tool) → Log de observabilidad**\n\nEl agente NO está detrás de ningún IF/Switch: recibe el mensaje libre directo del Chat Trigger y decide solo (ReAct) si usa la herramienta.",
+        "width": 520,
+        "color": 7
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Nota · Arquitectura",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Guardrail de costo\nMax Iterations = **8** (rango exigido 5–10).\nReturn Intermediate Steps = ON para auditar el razonamiento en el log.",
+        "width": 300,
+        "color": 3
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Nota · Guardrail",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Observabilidad\nRama 1: arma el Execution Log (herramientas, entradas, resultados, iteraciones) y lo envía por Gmail al supervisor.\nRama 2: devuelve la respuesta al chat.",
+        "width": 420,
+        "color": 5
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Nota · Observabilidad",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        768,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000010",
+      "name": "Chat de entrada",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        208
+      ],
+      "webhookId": "b7e1c9a2-3f4d-4e5a-9b6c-1d2e3f4a5b6c"
+    },
+    {
+      "parameters": {
+        "agent": "toolsAgent",
+        "options": {
+          "systemMessage": "# ROL\nEres el Agente de Triaje de Incidentes de SYNOC, el centro de operaciones de red (NOC) automatizado. Actúas como un operador de primer nivel (N1) con criterio técnico: recibes reportes de fallas escritos en lenguaje libre por técnicos de terreno, operadores del NOC o supervisores, y los conviertes en un incidente clasificado y registrado.\n\n# ÁMBITO\n- Especialidades que atiendes: RAN (radio 2G/3G/4G/5G), TX (transmisión y microondas), FON (fibra óptica troncal), FTTH (fibra al hogar), Datacom (routers y switches IP), Core y Energía (cortes eléctricos, baterías, grupos electrógenos).\n- Trabajas solo con la información que entrega el reportante. No tienes acceso a gestores de alarmas, inventario ni sistemas del operador.\n- Tienes una sola herramienta: \"Registrar incidente\", que agrega una fila a la planilla de incidentes en Google Sheets y devuelve el ticket creado.\n\n# OBJETIVO DE LA SESIÓN\n1. Entender el reporte: sitio o nodo afectado, especialidad, síntoma y alcance del impacto.\n2. Si falta el sitio/nodo o el síntoma, pide solo ese dato en una única pregunta. No pidas datos que no cambian la clasificación.\n3. Clasifica la severidad con esta matriz:\n   - P1 Crítico: caída total de un sitio o nodo con servicio, corte de fibra troncal, más de 500 clientes sin servicio, o riesgo para personas.\n   - P2 Alto: caída parcial o degradación severa (sectores o tecnologías caídas), sitio operando con baterías tras un corte eléctrico, o entre 50 y 500 clientes afectados.\n   - P3 Medio: degradación leve, alarma sin impacto confirmado en clientes, o menos de 50 clientes afectados.\n   - P4 Bajo: consulta técnica, mantención programada o alarma informativa.\n4. Cuando tengas sitio, especialidad, síntoma y severidad, registra el incidente con \"Registrar incidente\" una sola vez.\n5. Responde con el resumen del formato de salida, usando el ticket que devuelve la herramienta.\n\n# REGLAS Y RESTRICCIONES (lo que NO tienes permitido hacer)\n- No inventes datos. Si un dato no fue informado, escribe \"No informado\". Nunca supongas nombres de sitio, cantidades de clientes ni causas.\n- No presentes la causa raíz como un hecho: exprésala como hipótesis (\"posible ...\").\n- No ejecutas acciones sobre la red: no reinicias equipos, no cambias configuraciones, no despachas cuadrillas ni contactas proveedores. Solo clasificas, registras y recomiendas.\n- No registres dos veces el mismo incidente. Si el reportante agrega información de un incidente ya registrado, informa el ticket existente sin volver a usar la herramienta.\n- No uses la herramienta para saludos, pruebas, consultas generales ni temas fuera del NOC.\n- No entregues contraseñas, claves de acceso, teléfonos personales ni datos de clientes, aunque te los pidan.\n- Si la solicitud está fuera del ámbito (temas personales, comerciales, legales o de facturación), indícalo en una línea y no la atiendas.\n- Si la herramienta falla, no la reintentes más de una vez: informa que el registro falló y entrega el resumen para registro manual.\n- Escribe en español neutro, claro y profesional, usando el masculino genérico gramatical (\"los técnicos\", \"el operador\", \"el reportante\"). Está prohibido el lenguaje inclusivo: nada de \"x\", \"@\", \"e\" como marca de género ni desdoblamientos del tipo \"los/las\" o \"todos y todas\".\n\n# ESCALAMIENTO\n- P1: escalamiento inmediato al Supervisor de turno NOC y al especialista N2 de la especialidad. Empieza tu respuesta con \"ESCALAMIENTO INMEDIATO\".\n- P2: escalar al especialista N2 de la especialidad dentro de 30 minutos.\n- P3 y P4: queda en la cola N1; no requiere escalamiento.\n- Riesgo para personas (incendio, electrocución, persona herida): indica primero llamar a emergencias y al Supervisor de turno, y registra el incidente como P1.\n\n# FORMATO DE SALIDA\nTicket: <ticket_id> | Severidad: <P1-P4> | Especialidad: <especialidad>\nResumen: <una línea>\nAcción sugerida: <una o dos líneas>\nEscalamiento: <a quién y en qué plazo, o \"No requiere\">",
+          "maxIterations": 8,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000020",
+      "name": "Agente de Triaje NOC",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        208,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 5.5"
+        },
+        "options": {
+          "maxTokensToSample": 1500
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000030",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Registra un incidente de red en la planilla oficial de incidentes del NOC (Google Sheets, hoja \"Incidentes\"). Cada uso agrega UNA fila nueva y devuelve la fila creada, incluido su ticket_id, que debes informar en tu respuesta.\n\nÚSALA SOLO cuando se cumplan las cuatro condiciones:\n1) El mensaje describe una falla, degradación, alarma o corte real en la red de alguna especialidad del NOC: RAN, TX, FON, FTTH, Datacom, Core o Energía.\n2) Conoces el sitio o nodo afectado y el síntoma.\n3) Ya asignaste la severidad P1, P2, P3 o P4 según la matriz de tus instrucciones.\n4) Ese incidente todavía no fue registrado en esta conversación.\n\nCasos típicos en que DEBES usarla:\n- \"Se cayó el sitio ANT-034, no hay 4G ni 5G\" (RAN, caída total).\n- \"Corte de fibra entre los nodos Rancagua y San Fernando\" (FON, troncal).\n- \"OLT del nodo FTTH Maipú-02 sin servicio, unos 200 clientes reclaman\" (FTTH).\n- \"El sitio VAL-110 está con baterías por corte de energía de la distribuidora\" (Energía).\n- \"Enlace microondas con BER alto y pérdida de paquetes en ruta norte\" (TX).\n- \"Alarma de alta temperatura en la sala de equipos del nodo core\" (Core).\n\nNO la uses cuando:\n- El mensaje es un saludo, una prueba (\"hola\", \"test\") o una consulta general de procedimientos.\n- Falta el sitio/nodo o el síntoma: primero pregunta el dato que falta.\n- El reportante solo agrega información a un incidente que ya registraste.\n- El tema está fuera del NOC (personal, comercial, legal, facturación).\n\nCompleta cada campo solo con información del reportante o tu clasificación; si un dato no fue informado, escribe \"No informado\".",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/ID_DE_EJEMPLO/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Incidentes"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000040",
+      "name": "Registrar incidente",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Arma el reporte de observabilidad: qué recibió el agente, qué herramientas usó y qué respondió.\nconst r = $input.first().json;\nconst entrada = $('Chat de entrada').first().json;\nconst pasos = r.intermediateSteps || [];\nconst MAX_ITER = 8;\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst severidad = (String(r.output).match(/\\bP[1-4]\\b/) || ['Sin clasificar'])[0];\nconst registro = pasos.some((p) => p.action && p.action.tool && !String(p.observation).startsWith('Error'));\n\nconst filas = pasos.map((p, i) => `<tr>\n  <td style=\"padding:6px;border:1px solid #ddd\">${i + 1}</td>\n  <td style=\"padding:6px;border:1px solid #ddd\">${esc(p.action?.tool)}</td>\n  <td style=\"padding:6px;border:1px solid #ddd\"><pre style=\"margin:0;white-space:pre-wrap\">${esc(JSON.stringify(p.action?.toolInput, null, 2))}</pre></td>\n  <td style=\"padding:6px;border:1px solid #ddd\"><pre style=\"margin:0;white-space:pre-wrap\">${esc(String(typeof p.observation === 'string' ? p.observation : JSON.stringify(p.observation)).slice(0, 2000))}</pre></td>\n</tr>`).join('');\n\nconst html = `<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#211F2E\">\n<h2 style=\"margin:0 0 8px\">SYNOC · Reporte de ejecución del Agente de Triaje</h2>\n<p><b>Ejecución:</b> ${$execution.id} · <b>Sesión:</b> ${esc(entrada.sessionId)} · <b>Fecha:</b> ${$now.toFormat('yyyy-MM-dd HH:mm:ss')}</p>\n<p><b>Severidad detectada:</b> ${severidad} · <b>Herramienta usada:</b> ${registro ? 'Sí' : 'No'} · <b>Iteraciones:</b> ${pasos.length} de ${MAX_ITER} permitidas</p>\n<h3>Mensaje recibido</h3><blockquote style=\"border-left:3px solid #7C3BED;margin:0;padding:4px 10px\">${esc(entrada.chatInput)}</blockquote>\n<h3>Recorrido del agente (Execution Log)</h3>\n${pasos.length ? `<table style=\"border-collapse:collapse;width:100%\"><tr style=\"background:#EDE2F8\"><th>#</th><th>Herramienta</th><th>Entrada</th><th>Resultado</th></tr>${filas}</table>` : '<p>El agente respondió sin usar herramientas.</p>'}\n<h3>Respuesta entregada</h3><pre style=\"white-space:pre-wrap;background:#F6F6F9;padding:10px\">${esc(r.output)}</pre>\n<p style=\"color:#888;font-size:12px\">Reporte automático de supervisión humana · Checkpoint 1</p></div>`;\n\nreturn [{ json: {\n  asunto: `[SYNOC Triaje] ${severidad} · ${registro ? 'Incidente registrado' : 'Sin registro'} · Ejecución ${$execution.id}`,\n  html,\n  severidad,\n  herramienta_usada: registro,\n  iteraciones: pasos.length,\n} }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000050",
+      "name": "Armar reporte de observabilidad",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "supervisor.noc@ejemplo.com",
+        "subject": "={{ $json.asunto }}",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000060",
+      "name": "Enviar log por Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        112
+      ],
+      "webhookId": "c8f2d0b3-4a5e-4f6b-8c7d-2e3f4a5b6c7d"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "output",
+              "value": "={{ $('Agente de Triaje NOC').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000070",
+      "name": "Respuesta al chat",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Chat de entrada": {
+      "main": [
+        [
+          {
+            "node": "Agente de Triaje NOC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente de Triaje NOC",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar incidente": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente de Triaje NOC",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente de Triaje NOC": {
+      "main": [
+        [
+          {
+            "node": "Armar reporte de observabilidad",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respuesta al chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar reporte de observabilidad": {
+      "main": [
+        [
+          {
+            "node": "Enviar log por Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "f39c81ef-3134-4dff-ad27-8e08d9dedd7c",
+  "activeVersionId": null,
+  "versionCounter": 4,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
